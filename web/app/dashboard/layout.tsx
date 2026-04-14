@@ -16,6 +16,9 @@ export default async function DashboardLayout({
         <Link className="rounded-full px-3 py-1 hover:bg-cal-page hover:text-cal-ink" href="/dashboard/profile">
           Profile and MMS
         </Link>
+        <Link className="rounded-full px-3 py-1 hover:bg-cal-page hover:text-cal-ink" href="/dashboard/team-board">
+          Team board
+        </Link>
         <Link className="rounded-full px-3 py-1 hover:bg-cal-page hover:text-cal-ink" href="/dashboard/availability">
           Availability
         </Link>

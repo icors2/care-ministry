@@ -233,6 +233,24 @@ export interface Database {
         };
         Relationships: EmptyRel;
       };
+      team_board_posts: {
+        Row: {
+          id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          body?: string;
+        };
+        Relationships: EmptyRel;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
