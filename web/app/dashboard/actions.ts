@@ -32,26 +32,38 @@ export async function updateProfile(formData: FormData) {
   redirect("/dashboard/profile?saved=1");
 }
 
+const RECURRENCE_VALUES = new Set(["weekly", "biweekly", "monthly"]);
+
 export async function addAvailabilityBlock(formData: FormData) {
   const user = await requireUser();
   const supabase = await createClient();
   const day_of_week = parseInt(String(formData.get("day_of_week")), 10);
   const start_time = String(formData.get("start_time") ?? "09:00");
   const end_time = String(formData.get("end_time") ?? "12:00");
+  const recurrenceRaw = String(formData.get("recurrence") ?? "weekly");
+  const recurrence = RECURRENCE_VALUES.has(recurrenceRaw)
+    ? (recurrenceRaw as "weekly" | "biweekly" | "monthly")
+    : "weekly";
 
   if (Number.isNaN(day_of_week) || day_of_week < 0 || day_of_week > 6) {
     return;
   }
 
-  await supabase.from("availability_blocks").insert({
+  const { error } = await supabase.from("availability_blocks").insert({
     user_id: user.id,
     day_of_week,
     start_time: start_time.length === 5 ? `${start_time}:00` : start_time,
     end_time: end_time.length === 5 ? `${end_time}:00` : end_time,
     timezone: CHURCH_TIMEZONE,
+    recurrence,
   });
 
   revalidatePath("/dashboard/availability");
+  if (error) {
+    console.error(error);
+    redirect("/dashboard/availability?error=1");
+  }
+  redirect("/dashboard/availability?updated=1");
 }
 
 export async function deleteAvailabilityBlock(blockId: string) {
@@ -63,6 +75,7 @@ export async function deleteAvailabilityBlock(blockId: string) {
     .eq("id", blockId)
     .eq("user_id", user.id);
   revalidatePath("/dashboard/availability");
+  redirect("/dashboard/availability?updated=1");
 }
 
 export async function savePostVisitNotes(formData: FormData) {
@@ -113,7 +126,7 @@ export async function offerVolunteerForVisit(formData: FormData) {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "member") {
+  if (profile?.role !== "member" && profile?.role !== "admin") {
     redirect("/dashboard/calendar?volunteer=forbidden");
   }
 

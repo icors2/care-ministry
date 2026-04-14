@@ -2,12 +2,19 @@ import Link from "next/link";
 import { DateTime } from "luxon";
 import { CHURCH_TIMEZONE } from "@/lib/constants";
 
+/**
+ * open = needs assignment / open slot (red)
+ * pending = assigned, awaiting care team response (blue)
+ * active = accepted / in progress (green)
+ */
+export type VisitCalendarStatusTone = "open" | "pending" | "active";
+
 export type VisitCalendarItem = {
   dateKey: string;
   id: string;
   label: string;
   href?: string;
-  variant?: "default" | "accent" | "muted";
+  statusTone: VisitCalendarStatusTone;
 };
 
 function buildMonthCells(year: number, month: number): { dateKey: string; inMonth: boolean; label: string }[] {
@@ -26,16 +33,31 @@ function buildMonthCells(year: number, month: number): { dateKey: string; inMont
   return cells;
 }
 
+function toneClasses(tone: VisitCalendarStatusTone): string {
+  switch (tone) {
+    case "open":
+      return "border border-red-200/80 bg-red-50 text-red-950 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-100";
+    case "pending":
+      return "border border-blue-200/80 bg-blue-50 text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100";
+    case "active":
+      return "border border-emerald-200/80 bg-emerald-50 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100";
+    default:
+      return "border border-cal-border bg-cal-page text-cal-ink";
+  }
+}
+
 export function VisitCalendar({
   year,
   month,
   title,
   items,
+  showLegend = true,
 }: {
   year: number;
   month: number;
   title?: string;
   items: VisitCalendarItem[];
+  showLegend?: boolean;
 }) {
   const byDay = new Map<string, VisitCalendarItem[]>();
   for (const it of items) {
@@ -52,11 +74,36 @@ export function VisitCalendar({
   return (
     <div className="card-surface space-y-4 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold text-cal-ink">
-          {title ?? "Calendar"}
-        </h2>
+        <h2 className="text-lg font-semibold text-cal-ink">{title ?? "Calendar"}</h2>
         <p className="text-sm text-cal-ink-muted">{monthLabel}</p>
       </div>
+
+      {showLegend ? (
+        <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-cal-ink-muted">
+          <li className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 shrink-0 rounded-sm ${toneClasses("open")}`}
+              aria-hidden
+            />
+            <span>Open — needs assignment</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 shrink-0 rounded-sm ${toneClasses("pending")}`}
+              aria-hidden
+            />
+            <span>Pending — awaiting care team response</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span
+              className={`inline-block h-2.5 w-2.5 shrink-0 rounded-sm ${toneClasses("active")}`}
+              aria-hidden
+            />
+            <span>Active — accepted / in progress</span>
+          </li>
+        </ul>
+      ) : null}
+
       <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-cal-ink-muted">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} className="py-1">
@@ -79,15 +126,9 @@ export function VisitCalendar({
               <div className="text-xs font-medium text-cal-ink-muted">{c.label}</div>
               <ul className="mt-1 space-y-1">
                 {dayItems.map((it) => {
-                  const tone =
-                    it.variant === "accent"
-                      ? "bg-cal-accent/15 text-cal-primary"
-                      : it.variant === "muted"
-                        ? "bg-cal-page text-cal-ink-muted"
-                        : "bg-cal-primary/10 text-cal-primary";
                   const inner = (
                     <span
-                      className={`block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${tone}`}
+                      className={`block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${toneClasses(it.statusTone)}`}
                     >
                       {it.label}
                     </span>

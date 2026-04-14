@@ -11,13 +11,54 @@ function luxonWeekdayToSchema(weekday: number): number {
   return weekday === 7 ? 0 : weekday;
 }
 
+/** Schema 0=Sun..6=Sat → Luxon weekday Mon=1..Sun=7 */
+function schemaDayToLuxonWeekday(schemaDow: number): number {
+  return schemaDow === 0 ? 7 : schemaDow;
+}
+
+function recurrenceAllowsVisitOnDay(
+  visitLocalDay: DateTime,
+  block: Pick<Block, "day_of_week" | "recurrence" | "created_at">,
+  zone: string,
+): boolean {
+  const recurrence = block.recurrence ?? "weekly";
+  if (recurrence === "weekly") return true;
+
+  const anchor = DateTime.fromISO(block.created_at, { setZone: true }).setZone(zone);
+  if (!anchor.isValid) return true;
+
+  if (recurrence === "biweekly") {
+    const visitDay = visitLocalDay.startOf("day");
+    const anchorDay = anchor.startOf("day");
+    const days = Math.floor(visitDay.diff(anchorDay, "days").days);
+    const weeksApart = Math.floor(days / 7);
+    return weeksApart % 2 === 0;
+  }
+
+  if (recurrence === "monthly") {
+    const targetLuxon = schemaDayToLuxonWeekday(block.day_of_week);
+    let d = visitLocalDay.startOf("month");
+    const limit = visitLocalDay.endOf("month");
+    while (d <= limit && d.weekday !== targetLuxon) {
+      d = d.plus({ days: 1 });
+    }
+    return visitLocalDay.hasSame(d, "day");
+  }
+
+  return true;
+}
+
 /**
- * Returns true if [visitStart, visitEnd] overlaps the availability block on the visit's local calendar day in block.timezone.
+ * Returns true if [visitStart, visitEnd] overlaps the availability block on the visit's local calendar day in block.timezone,
+ * respecting weekly / biweekly / monthly recurrence.
  */
 export function visitOverlapsBlock(
   visitStart: Date,
   visitEnd: Date,
-  block: Pick<Block, "day_of_week" | "start_time" | "end_time" | "timezone">,
+  block: Pick<
+    Block,
+    "day_of_week" | "start_time" | "end_time" | "timezone" | "recurrence" | "created_at"
+  >,
 ): boolean {
   const zone = block.timezone || CHURCH_TIMEZONE;
   const vs = DateTime.fromJSDate(visitStart).setZone(zone);
@@ -26,6 +67,10 @@ export function visitOverlapsBlock(
 
   const dow = luxonWeekdayToSchema(vs.weekday);
   if (dow !== block.day_of_week) return false;
+
+  if (!recurrenceAllowsVisitOnDay(vs.startOf("day"), block, zone)) {
+    return false;
+  }
 
   const [sh, sm, ss] = block.start_time.split(":").map((n) => parseInt(n, 10));
   const [eh, em, es] = block.end_time.split(":").map((n) => parseInt(n, 10));

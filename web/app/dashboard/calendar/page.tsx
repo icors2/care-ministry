@@ -17,7 +17,7 @@ export const metadata = { title: "Calendar | Care Ministry" };
 export default async function DashboardCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ y?: string; m?: string }>;
+  searchParams: Promise<{ y?: string; m?: string; volunteer?: string }>;
 }) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -32,6 +32,8 @@ export default async function DashboardCalendarPage({
     .select("role")
     .eq("id", user.id)
     .single();
+
+  const canSeeOpenAndVolunteer = profile?.role === "member" || profile?.role === "admin";
 
   const { data: assignments } = await supabase
     .from("visit_assignments")
@@ -62,18 +64,23 @@ export default async function DashboardCalendarPage({
     const vr = embedOne(a.visit_requests as object) as VisitRequestCalendarInput | null;
     if (!vr || visitRequestExcludedFromCalendar(vr)) continue;
     const keys = visitRequestCalendarDayKeys(vr, monthDt);
+    const statusTone = a.status === "accepted" ? ("active" as const) : ("pending" as const);
+    const labelSuffix = a.status === "pending" ? "respond" : "accepted";
     for (const dateKey of keys) {
       items.push({
         dateKey,
         id: `${a.id}-${dateKey}`,
-        label: `${vr?.congregant_name ?? "Visit"} (${a.status})`,
+        label: `You: ${vr?.congregant_name ?? "Visit"} (${labelSuffix})`,
         href: "/dashboard/visits",
-        variant: a.status === "accepted" ? "accent" : "default",
+        statusTone,
       });
     }
   }
 
-  if (profile?.role === "member") {
+  let list: Array<VisitRequestCalendarInput & { congregant_name: string }> = [];
+  let offered = new Set<string>();
+
+  if (canSeeOpenAndVolunteer) {
     const { data: openReqs } = await supabase
       .from("visit_requests")
       .select("*")
@@ -84,13 +91,12 @@ export default async function DashboardCalendarPage({
       .select("visit_request_id")
       .eq("member_id", user.id);
 
-    const offered = new Set((myOffers ?? []).map((o) => o.visit_request_id));
+    offered = new Set((myOffers ?? []).map((o) => o.visit_request_id));
 
-    const list =
-      openReqs?.filter((r) => {
-        const archived = Boolean((r as { deleted_at?: string | null }).deleted_at);
-        return !archived;
-      }) ?? [];
+    list = (openReqs?.filter((r) => {
+      const archived = Boolean((r as { deleted_at?: string | null }).deleted_at);
+      return !archived;
+    }) ?? []) as Array<VisitRequestCalendarInput & { congregant_name: string }>;
 
     for (const r of list) {
       const keys = visitRequestCalendarDayKeys(r as VisitRequestCalendarInput, monthDt);
@@ -99,43 +105,76 @@ export default async function DashboardCalendarPage({
           dateKey,
           id: `open-${r.id}-${dateKey}`,
           label: `Open: ${r.congregant_name}`,
-          href: "/dashboard/calendar",
-          variant: "muted",
+          href: "/dashboard/calendar#open-visits",
+          statusTone: "open",
         });
       }
     }
+  }
 
-    return (
-      <div className="space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-cal-ink">Calendar</h1>
-            <p className="mt-1 text-sm text-cal-ink-muted">
-              Assignments and open visit needs ({CHURCH_TIMEZONE}).
-            </p>
-          </div>
-          <div className="flex gap-2 text-sm">
-            <Link
-              className="btn-secondary px-3 py-2"
-              href={`/dashboard/calendar?y=${monthDt.minus({ months: 1 }).year}&m=${monthDt.minus({ months: 1 }).month}`}
-            >
-              Previous
-            </Link>
-            <Link
-              className="btn-secondary px-3 py-2"
-              href={`/dashboard/calendar?y=${monthDt.plus({ months: 1 }).year}&m=${monthDt.plus({ months: 1 }).month}`}
-            >
-              Next
-            </Link>
-          </div>
+  const volunteerMsg =
+    sp.volunteer === "ok"
+      ? "Thanks — we recorded your offer to help. A coordinator will still assign and notify the care team."
+      : sp.volunteer === "withdrawn"
+        ? "Your volunteer offer was withdrawn."
+        : sp.volunteer === "duplicate"
+          ? "You already offered to help on that visit."
+          : sp.volunteer === "closed"
+            ? "That visit is no longer open for offers."
+            : sp.volunteer === "forbidden"
+              ? "Your account cannot record volunteer offers."
+              : sp.volunteer === "error"
+                ? "Something went wrong. Please try again."
+                : null;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-cal-ink">Calendar</h1>
+          <p className="mt-1 text-sm text-cal-ink-muted">
+            {canSeeOpenAndVolunteer
+              ? "Your assignments and open visits that need a care team member."
+              : "Your visit assignments."}
+          </p>
         </div>
+        <div className="flex gap-2 text-sm">
+          <Link
+            className="btn-secondary px-3 py-2"
+            href={`/dashboard/calendar?y=${monthDt.minus({ months: 1 }).year}&m=${monthDt.minus({ months: 1 }).month}`}
+          >
+            Previous
+          </Link>
+          <Link
+            className="btn-secondary px-3 py-2"
+            href={`/dashboard/calendar?y=${monthDt.plus({ months: 1 }).year}&m=${monthDt.plus({ months: 1 }).month}`}
+          >
+            Next
+          </Link>
+        </div>
+      </div>
 
-        <VisitCalendar year={year} month={month} items={items} />
+      {volunteerMsg ? (
+        <p
+          className={`max-w-2xl rounded-lg border px-4 py-3 text-sm ${
+            sp.volunteer === "ok" || sp.volunteer === "withdrawn"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : "border-amber-200 bg-amber-50 text-amber-950"
+          }`}
+          role="status"
+        >
+          {volunteerMsg}
+        </p>
+      ) : null}
 
-        <section className="card-surface p-4">
+      <VisitCalendar year={year} month={month} items={items} />
+
+      {canSeeOpenAndVolunteer ? (
+        <section id="open-visits" className="card-surface scroll-mt-24 p-4">
           <h2 className="text-lg font-semibold text-cal-ink">Open visits — volunteer</h2>
           <p className="mt-1 text-sm text-cal-ink-muted">
-            Offering records your interest; an admin still assigns and notifies the care team.
+            These requests still need a care team assignment. Offering records your interest; a coordinator assigns
+            and sends notifications.
           </p>
           <ul className="mt-4 space-y-3">
             {list.map((r) => (
@@ -146,11 +185,9 @@ export default async function DashboardCalendarPage({
                 <div>
                   <p className="font-medium text-cal-ink">{r.congregant_name}</p>
                   <p className="text-xs text-cal-ink-muted">
-                    {(r as { preferred_times_text?: string | null }).preferred_times_text
-                      ? String((r as { preferred_times_text?: string | null }).preferred_times_text)
-                          .split("\n")[0]
-                          ?.slice(0, 120)
-                      : "See preferred times in admin console"}
+                    {r.preferred_times_text
+                      ? String(r.preferred_times_text).split("\n")[0]?.slice(0, 120)
+                      : "Preferred times on file"}
                   </p>
                 </div>
                 {offered.has(r.id) ? (
@@ -173,33 +210,7 @@ export default async function DashboardCalendarPage({
           </ul>
           {!list.length ? <p className="mt-2 text-sm text-cal-ink-muted">No open requests right now.</p> : null}
         </section>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-cal-ink">Calendar</h1>
-          <p className="mt-1 text-sm text-cal-ink-muted">Your assignments ({CHURCH_TIMEZONE}).</p>
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Link
-            className="btn-secondary px-3 py-2"
-            href={`/dashboard/calendar?y=${monthDt.minus({ months: 1 }).year}&m=${monthDt.minus({ months: 1 }).month}`}
-          >
-            Previous
-          </Link>
-          <Link
-            className="btn-secondary px-3 py-2"
-            href={`/dashboard/calendar?y=${monthDt.plus({ months: 1 }).year}&m=${monthDt.plus({ months: 1 }).month}`}
-          >
-            Next
-          </Link>
-        </div>
-      </div>
-      <VisitCalendar year={year} month={month} items={items} />
+      ) : null}
     </div>
   );
 }

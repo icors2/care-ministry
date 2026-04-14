@@ -59,9 +59,10 @@ export function VisitRequestForm() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setState("submitting");
     setErrorKey(null);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
 
     fd.set("intake_timing_mode", timingMode);
     fd.set("visit_timing_recurring", recurring ? "true" : "false");
@@ -97,7 +98,7 @@ export function VisitRequestForm() {
     const res = await submitVisitRequest(fd);
     if (res.ok) {
       setState("success");
-      e.currentTarget.reset();
+      form.reset();
       setDays(emptyDays());
       setPreferredNotes("");
       setWindows([{ start: "", end: "" }]);

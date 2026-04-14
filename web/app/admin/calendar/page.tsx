@@ -3,7 +3,11 @@ import { DateTime } from "luxon";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { CHURCH_TIMEZONE } from "@/lib/constants";
-import { VisitCalendar, type VisitCalendarItem } from "@/components/visit-calendar";
+import {
+  VisitCalendar,
+  type VisitCalendarItem,
+  type VisitCalendarStatusTone,
+} from "@/components/visit-calendar";
 import {
   visitRequestCalendarDayKeys,
   type VisitRequestCalendarInput,
@@ -11,6 +15,12 @@ import {
 import { visitRequestExcludedFromCalendar } from "@/lib/visit-request-visibility";
 
 export const metadata = { title: "Admin calendar | Care Ministry" };
+
+function statusToTone(status: string): VisitCalendarStatusTone {
+  if (status === "new") return "open";
+  if (status === "pending_member") return "pending";
+  return "active";
+}
 
 export default async function AdminCalendarPage({
   searchParams,
@@ -40,15 +50,22 @@ export default async function AdminCalendarPage({
 
   const items: VisitCalendarItem[] = [];
   for (const r of active) {
-    const row = r as VisitRequestCalendarInput;
+    const row = r as VisitRequestCalendarInput & { congregant_name: string; status: string };
     const keys = visitRequestCalendarDayKeys(row, monthDt);
+    const tone = statusToTone(row.status);
+    const labelStatus =
+      row.status === "new"
+        ? "open"
+        : row.status === "pending_member"
+          ? "pending"
+          : "active";
     for (const dateKey of keys) {
       items.push({
         dateKey,
         id: `${r.id}-${dateKey}`,
-        label: `${r.congregant_name} (${r.status})`,
+        label: `${row.congregant_name} (${labelStatus})`,
         href: `/admin/requests/${r.id}`,
-        variant: r.status === "new" ? "muted" : "default",
+        statusTone: tone,
       });
     }
   }
@@ -59,7 +76,7 @@ export default async function AdminCalendarPage({
         <div>
           <h1 className="text-2xl font-semibold text-cal-ink">Admin calendar</h1>
           <p className="mt-1 text-sm text-cal-ink-muted">
-            Open and scheduled visits ({CHURCH_TIMEZONE}).
+            Open visits, assignments awaiting response, and accepted visits in progress.
           </p>
         </div>
         <div className="flex gap-2 text-sm">

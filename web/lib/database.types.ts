@@ -18,6 +18,9 @@ export type VisitRequestStatus =
 
 export type IntakeTimingMode = "preferred_slots" | "specific_windows";
 
+/** How often an availability window repeats (see migration comment for matching rules). */
+export type AvailabilityRecurrence = "weekly" | "biweekly" | "monthly";
+
 export type AssignmentStatus = "pending" | "accepted" | "declined";
 
 type EmptyRel = [];
@@ -133,6 +136,7 @@ export interface Database {
           start_time: string;
           end_time: string;
           timezone: string;
+          recurrence: AvailabilityRecurrence;
           created_at: string;
         };
         Insert: {
@@ -142,12 +146,14 @@ export interface Database {
           start_time: string;
           end_time: string;
           timezone?: string;
+          recurrence?: AvailabilityRecurrence;
         };
         Update: {
           day_of_week?: number;
           start_time?: string;
           end_time?: string;
           timezone?: string;
+          recurrence?: AvailabilityRecurrence;
         };
         Relationships: EmptyRel;
       };
