@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "luxon": "^3.7.2",
     "next": "16.2.3",
     "nodemailer": "^8.0.5",

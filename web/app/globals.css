@@ -1,26 +1,140 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --cal-page: #f4f1ea;
+  --cal-card: #ffffff;
+  --cal-ink: #1a202c;
+  --cal-ink-muted: #4a5568;
+  --cal-border: #e2d8c4;
+  --cal-primary: #1a365d;
+  --cal-accent: #b8942d;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--cal-page);
+  --color-foreground: var(--cal-ink);
+  --color-cal-page: var(--cal-page);
+  --color-cal-card: var(--cal-card);
+  --color-cal-ink: var(--cal-ink);
+  --color-cal-ink-muted: var(--cal-ink-muted);
+  --color-cal-border: var(--cal-border);
+  --color-cal-primary: var(--cal-primary);
+  --color-cal-accent: var(--cal-accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --cal-page: #0f172a;
+    --cal-card: #111c33;
+    --cal-ink: #f4f1ea;
+    --cal-ink-muted: #a0aec0;
+    --cal-border: #2d3b55;
+    --cal-primary: #e2e8f0;
+    --cal-accent: #d4b24a;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--cal-page);
+  color: var(--cal-ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.card-surface {
+  border-radius: 1rem;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-card);
+  box-shadow: 0 10px 30px rgba(26, 54, 93, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  .card-surface {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.field {
+  border-radius: 0.75rem;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-card);
+  padding: 0.5rem 0.75rem;
+}
+
+.field:focus,
+.field:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cal-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.75rem;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background-image: linear-gradient(180deg, #234876 0%, #1a365d 100%);
+  border: 1px solid color-mix(in srgb, #1a365d 70%, #000);
+  box-shadow: 0 8px 20px rgba(26, 54, 93, 0.22);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 12px 26px rgba(26, 54, 93, 0.28);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(26, 54, 93, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary {
+    color: #0f172a;
+    background-image: linear-gradient(180deg, #f7efd2 0%, #d4b24a 100%);
+    border-color: color-mix(in srgb, #d4b24a 70%, #000);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cal-primary);
+  border: 1px solid color-mix(in srgb, var(--cal-primary) 35%, var(--cal-border));
+  background: color-mix(in srgb, var(--cal-card) 88%, transparent);
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cal-accent) 55%, var(--cal-border));
+  background: color-mix(in srgb, var(--cal-accent) 12%, var(--cal-card));
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-secondary {
+    color: var(--cal-ink);
+    border-color: color-mix(in srgb, var(--cal-ink) 25%, var(--cal-border));
+    background: color-mix(in srgb, var(--cal-card) 80%, transparent);
+  }
 }

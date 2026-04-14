@@ -67,15 +67,24 @@ export async function sendVisitReminder(assignmentId: string): Promise<{
   const when = new Date(vr.visit_window_start).toLocaleString();
   const text = `Care Ministry reminder: Visit for ${vr.congregant_name} — ${when}`;
 
-  try {
-    await transporter.sendMail({
-      from,
-      to: recipients.join(","),
-      subject: "Care Ministry reminder",
-      text,
-    });
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "send failed" };
+  const failures: string[] = [];
+  let anyOk = false;
+  for (const to of recipients) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: "Care Ministry reminder",
+        text,
+      });
+      anyOk = true;
+    } catch (e) {
+      failures.push(e instanceof Error ? e.message : "send failed");
+    }
+  }
+
+  if (!anyOk) {
+    return { ok: false, error: failures.join("; ") || "send failed" };
   }
 
   await supabase

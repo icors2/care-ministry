@@ -17,39 +17,41 @@ export async function SiteHeader() {
   }
 
   return (
-    <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <header className="border-b border-cal-border bg-gradient-to-r from-cal-primary to-[#234876] text-white">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <Link
-          href="/"
-          className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
-        >
-          Care Ministry
-        </Link>
-        <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <Link href="/request-visit" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+        <div>
+          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+            Care Ministry
+          </Link>
+          <p className="text-xs text-white/80">
+            Calvary Baptist Church ·{" "}
+            <a className="underline decoration-white/40 hover:decoration-white" href="https://calvaryeauclaire.org/">
+              calvaryeauclaire.org
+            </a>
+          </p>
+        </div>
+        <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-white/90">
+          <Link href="/request-visit" className="hover:text-white">
             Request a visit
           </Link>
           {user ? (
             <>
-              <Link href="/dashboard" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              <Link href="/dashboard" className="hover:text-white">
                 Dashboard
               </Link>
               {isAdmin ? (
-                <Link href="/admin" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                <Link href="/admin" className="hover:text-white">
                   Admin
                 </Link>
               ) : null}
               <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="hover:text-zinc-900 dark:hover:text-zinc-100"
-                >
+                <button type="submit" className="hover:text-white">
                   Sign out
                 </button>
               </form>
             </>
           ) : (
-            <Link href="/login" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+            <Link href="/login" className="btn-primary px-3 py-2 text-xs text-[#0f172a]">
               Care team login
             </Link>
           )}

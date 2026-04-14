@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { CHURCH_TIMEZONE } from "@/lib/constants";
+import { applyAssignmentResponse } from "@/lib/visit-assignment-response";
 
 export async function updateProfile(formData: FormData) {
   const user = await requireUser();
@@ -12,7 +15,7 @@ export async function updateProfile(formData: FormData) {
   const mms_gateway_domain = String(formData.get("mms_gateway_domain") ?? "").trim() || null;
   const contact_email = String(formData.get("contact_email") ?? "").trim() || null;
 
-  await supabase
+  const { error } = await supabase
     .from("profiles")
     .update({
       display_name,
@@ -23,6 +26,10 @@ export async function updateProfile(formData: FormData) {
     .eq("id", user.id);
 
   revalidatePath("/dashboard/profile");
+  if (error) {
+    redirect("/dashboard/profile?error=1");
+  }
+  redirect("/dashboard/profile?saved=1");
 }
 
 export async function addAvailabilityBlock(formData: FormData) {
@@ -31,7 +38,6 @@ export async function addAvailabilityBlock(formData: FormData) {
   const day_of_week = parseInt(String(formData.get("day_of_week")), 10);
   const start_time = String(formData.get("start_time") ?? "09:00");
   const end_time = String(formData.get("end_time") ?? "12:00");
-  const timezone = String(formData.get("timezone") ?? "America/New_York");
 
   if (Number.isNaN(day_of_week) || day_of_week < 0 || day_of_week > 6) {
     return;
@@ -42,7 +48,7 @@ export async function addAvailabilityBlock(formData: FormData) {
     day_of_week,
     start_time: start_time.length === 5 ? `${start_time}:00` : start_time,
     end_time: end_time.length === 5 ? `${end_time}:00` : end_time,
-    timezone,
+    timezone: CHURCH_TIMEZONE,
   });
 
   revalidatePath("/dashboard/availability");
@@ -65,11 +71,81 @@ export async function savePostVisitNotes(formData: FormData) {
   const notes = String(formData.get("notes") ?? "");
   if (!assignmentId) return;
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("visit_assignments")
     .update({ post_visit_notes: notes })
     .eq("id", assignmentId)
     .eq("assignee_id", user.id)
     .eq("status", "accepted");
   revalidatePath("/dashboard/visits");
+  if (error) {
+    redirect(`/dashboard/visits?notesError=1&editNotes=${encodeURIComponent(assignmentId)}`);
+  }
+  redirect("/dashboard/visits?notesSaved=1");
+}
+
+export async function respondToAssignmentFromDashboard(formData: FormData) {
+  const user = await requireUser();
+  const assignmentId = String(formData.get("assignment_id") ?? "");
+  const decisionRaw = String(formData.get("decision") ?? "");
+  if (!assignmentId || (decisionRaw !== "accept" && decisionRaw !== "decline")) {
+    redirect("/dashboard/visits?response=error");
+  }
+  const res = await applyAssignmentResponse({
+    assignmentId,
+    assigneeId: user.id,
+    decision: decisionRaw,
+  });
+  if (!res.ok) {
+    redirect(`/dashboard/visits?response=${res.error}`);
+  }
+  redirect(`/dashboard/visits?response=${decisionRaw === "accept" ? "accepted" : "declined"}`);
+}
+
+export async function offerVolunteerForVisit(formData: FormData) {
+  const user = await requireUser();
+  const visitRequestId = String(formData.get("visit_request_id") ?? "");
+  if (!visitRequestId) redirect("/dashboard/calendar?volunteer=error");
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "member") {
+    redirect("/dashboard/calendar?volunteer=forbidden");
+  }
+
+  const { data: req } = await supabase.from("visit_requests").select("*").eq("id", visitRequestId).single();
+
+  const row = req as { id: string; status: string; deleted_at?: string | null } | null;
+  const archived = Boolean(row?.deleted_at);
+  if (!row || row.status !== "new" || archived) {
+    redirect("/dashboard/calendar?volunteer=closed");
+  }
+
+  const { error } = await supabase.from("visit_offers").insert({
+    visit_request_id: visitRequestId,
+    member_id: user.id,
+  });
+  revalidatePath("/dashboard/calendar");
+  if (error) {
+    redirect("/dashboard/calendar?volunteer=duplicate");
+  }
+  redirect("/dashboard/calendar?volunteer=ok");
+}
+
+export async function withdrawVolunteerForVisit(formData: FormData) {
+  const user = await requireUser();
+  const visitRequestId = String(formData.get("visit_request_id") ?? "");
+  if (!visitRequestId) return;
+  const supabase = await createClient();
+  await supabase
+    .from("visit_offers")
+    .delete()
+    .eq("visit_request_id", visitRequestId)
+    .eq("member_id", user.id);
+  revalidatePath("/dashboard/calendar");
+  redirect("/dashboard/calendar?volunteer=withdrawn");
 }

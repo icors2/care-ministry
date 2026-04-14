@@ -16,6 +16,8 @@ export type VisitRequestStatus =
   | "completed"
   | "cancelled";
 
+export type IntakeTimingMode = "preferred_slots" | "specific_windows";
+
 export type AssignmentStatus = "pending" | "accepted" | "declined";
 
 type EmptyRel = [];
@@ -65,6 +67,10 @@ export interface Database {
           status: VisitRequestStatus;
           consent_contact: boolean;
           created_at: string;
+          visit_timing_recurring: boolean;
+          intake_timing_mode: IntakeTimingMode | null;
+          intake_visit_windows: Json | null;
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -78,6 +84,10 @@ export interface Database {
           visit_window_end?: string | null;
           status?: VisitRequestStatus;
           consent_contact?: boolean;
+          visit_timing_recurring?: boolean;
+          intake_timing_mode?: IntakeTimingMode | null;
+          intake_visit_windows?: Json | null;
+          deleted_at?: string | null;
         };
         Update: {
           congregant_name?: string;
@@ -90,6 +100,28 @@ export interface Database {
           visit_window_end?: string | null;
           status?: VisitRequestStatus;
           consent_contact?: boolean;
+          visit_timing_recurring?: boolean;
+          intake_timing_mode?: IntakeTimingMode | null;
+          intake_visit_windows?: Json | null;
+          deleted_at?: string | null;
+        };
+        Relationships: EmptyRel;
+      };
+      visit_offers: {
+        Row: {
+          id: string;
+          visit_request_id: string;
+          member_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          visit_request_id: string;
+          member_id: string;
+        };
+        Update: {
+          visit_request_id?: string;
+          member_id?: string;
         };
         Relationships: EmptyRel;
       };

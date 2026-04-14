@@ -3,10 +3,34 @@
 import { headers } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/service";
 import { checkIntakeRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
+import type { Json } from "@/lib/database.types";
 
 export type SubmitVisitResult =
   | { ok: true }
   | { ok: false; error: string };
+
+function parseWindowsJson(raw: string): { start: string; end: string }[] {
+  if (!raw.trim()) return [];
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!Array.isArray(v)) return [];
+    const out: { start: string; end: string }[] = [];
+    for (const item of v) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      const start = typeof o.start === "string" ? o.start : null;
+      const end = typeof o.end === "string" ? o.end : null;
+      if (!start || !end) continue;
+      const s = new Date(start);
+      const e = new Date(end);
+      if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e <= s) continue;
+      out.push({ start, end });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Public intake: honeypot, consent, rate limit (hashed IP), then insert via service role.
@@ -31,14 +55,39 @@ export async function submitVisitRequest(formData: FormData): Promise<SubmitVisi
   const congregant_name = String(formData.get("congregant_name") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const preferred_times_text = String(formData.get("preferred_times_text") ?? "").trim() || null;
   const prayer_requests = String(formData.get("prayer_requests") ?? "").trim() || null;
   const special_instructions = String(formData.get("special_instructions") ?? "").trim() || null;
 
+  const intake_timing_mode = String(formData.get("intake_timing_mode") ?? "preferred_slots") as
+    | "preferred_slots"
+    | "specific_windows";
+  const recurringRaw = String(formData.get("visit_timing_recurring") ?? "true");
+  const visit_timing_recurring = recurringRaw !== "false";
+
+  const preferred_times_text = String(formData.get("preferred_times_text") ?? "").trim() || null;
+  const windowsJson = String(formData.get("intake_visit_windows_json") ?? "").trim();
+  const parsedWindows = parseWindowsJson(windowsJson);
+
   const windowStartRaw = String(formData.get("visit_window_start") ?? "").trim();
   const windowEndRaw = String(formData.get("visit_window_end") ?? "").trim();
-  const visit_window_start = windowStartRaw ? new Date(windowStartRaw).toISOString() : null;
-  const visit_window_end = windowEndRaw ? new Date(windowEndRaw).toISOString() : null;
+  let visit_window_start = windowStartRaw ? new Date(windowStartRaw).toISOString() : null;
+  let visit_window_end = windowEndRaw ? new Date(windowEndRaw).toISOString() : null;
+
+  let intake_visit_windows: Json | null = null;
+
+  if (intake_timing_mode === "specific_windows") {
+    if (!parsedWindows.length) {
+      return { ok: false, error: "timing_required" };
+    }
+    intake_visit_windows = parsedWindows as unknown as Json;
+    const first = parsedWindows[0]!;
+    visit_window_start = new Date(first.start).toISOString();
+    visit_window_end = new Date(first.end).toISOString();
+  } else {
+    if (!preferred_times_text) {
+      return { ok: false, error: "timing_required" };
+    }
+  }
 
   if (!congregant_name || !address || !phone) {
     return { ok: false, error: "missing_fields" };
@@ -56,6 +105,9 @@ export async function submitVisitRequest(formData: FormData): Promise<SubmitVisi
     visit_window_end,
     consent_contact: true,
     status: "new",
+    visit_timing_recurring,
+    intake_timing_mode,
+    intake_visit_windows,
   });
 
   if (error) {

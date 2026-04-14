@@ -5,7 +5,12 @@ import { updateProfile } from "../actions";
 
 export const metadata = { title: "Profile | Care Ministry" };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireUser();
   const supabase = await createClient();
   const { data: profile } = await supabase
@@ -23,6 +28,23 @@ export default async function ProfilePage() {
         Your mobile number is sent as email to the carrier gateway (no Twilio). Add a backup
         email if texts sometimes fail.
       </p>
+
+      {params.saved === "1" ? (
+        <p
+          className="mt-6 max-w-xl rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"
+          role="status"
+        >
+          Your profile was saved successfully.
+        </p>
+      ) : null}
+      {params.error === "1" ? (
+        <p
+          className="mt-6 max-w-xl rounded-lg bg-red-50 px-4 py-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-100"
+          role="alert"
+        >
+          We couldn&apos;t save your profile. Please try again.
+        </p>
+      ) : null}
 
       <form action={updateProfile} className="mt-8 max-w-xl space-y-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
@@ -53,7 +75,7 @@ export default async function ProfilePage() {
           >
             <option value="">Select carrier…</option>
             {MMS_GATEWAYS.map((g) => (
-              <option key={g.domain} value={g.domain}>
+              <option key={`${g.domain}:${g.label}`} value={g.domain}>
                 {g.label}
               </option>
             ))}

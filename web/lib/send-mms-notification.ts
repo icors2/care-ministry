@@ -16,14 +16,19 @@ function shortText(s: string | null | undefined, max: number): string {
   return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
 }
 
+export type MmsNotifyResult = {
+  ok: boolean;
+  /** Some recipients failed while at least one succeeded. */
+  partial?: boolean;
+  error?: string;
+};
+
 /**
  * Sends email-to-MMS (and optional email fallback) for a pending visit assignment.
  * Uses SUPABASE_SERVICE_ROLE_KEY to load rows regardless of caller.
+ * Sends one SMTP message per recipient so partial delivery is possible.
  */
-export async function sendMmsNotification(visitAssignmentId: string): Promise<{
-  ok: boolean;
-  error?: string;
-}> {
+export async function sendMmsNotification(visitAssignmentId: string): Promise<MmsNotifyResult> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (!baseUrl) {
     return { ok: false, error: "NEXT_PUBLIC_APP_URL is not set" };
@@ -70,8 +75,7 @@ export async function sendMmsNotification(visitAssignmentId: string): Promise<{
 
   const digits = digitsOnly(profile?.phone_digits ?? null);
   const domain = profile?.mms_gateway_domain;
-  const mmsTo =
-    digits && domain ? `${digits}@${domain}` : null;
+  const mmsTo = digits && domain ? `${digits}@${domain}` : null;
 
   const acceptUrl = `${baseUrl}/v/${row.response_token}`;
   const denyUrl = `${baseUrl}/v/${row.response_token}?a=deny`;
@@ -107,22 +111,37 @@ export async function sendMmsNotification(visitAssignmentId: string): Promise<{
     };
   }
 
-  try {
-    await transporter.sendMail({
-      from,
-      to: recipients.join(","),
-      subject: "Care Ministry visit",
-      text: body,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "send failed";
-    return { ok: false, error: msg };
+  const failures: string[] = [];
+  let anyOk = false;
+  for (const to of recipients) {
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        subject: "Care Ministry visit",
+        text: body,
+      });
+      anyOk = true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "send failed";
+      failures.push(`${to}: ${msg}`);
+    }
   }
 
-  await supabase
-    .from("visit_assignments")
-    .update({ notification_sent_at: new Date().toISOString() })
-    .eq("id", visitAssignmentId);
+  if (anyOk) {
+    await supabase
+      .from("visit_assignments")
+      .update({ notification_sent_at: new Date().toISOString() })
+      .eq("id", visitAssignmentId);
+  }
 
-  return { ok: true };
+  if (!anyOk) {
+    return { ok: false, error: failures.join("; ") || "Send failed" };
+  }
+
+  return {
+    ok: true,
+    partial: failures.length > 0,
+    error: failures.length > 0 ? failures.join("; ") : undefined,
+  };
 }
