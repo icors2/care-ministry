@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { getAppBaseUrl, appBaseUrlErrorMessage } from "@/lib/app-base-url";
 import { getSmtpTransporter } from "@/lib/smtp";
 import { embedOne } from "@/lib/unwrap-embed";
 
@@ -29,9 +30,9 @@ export type MmsNotifyResult = {
  * Sends one SMTP message per recipient so partial delivery is possible.
  */
 export async function sendMmsNotification(visitAssignmentId: string): Promise<MmsNotifyResult> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const baseUrl = getAppBaseUrl();
   if (!baseUrl) {
-    return { ok: false, error: "NEXT_PUBLIC_APP_URL is not set" };
+    return { ok: false, error: appBaseUrlErrorMessage() };
   }
 
   const supabase = createServiceClient();

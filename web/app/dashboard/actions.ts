@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { CHURCH_TIMEZONE } from "@/lib/constants";
 import { applyAssignmentResponse } from "@/lib/visit-assignment-response";
+import { notifyAdminsVolunteerOffer } from "@/lib/notify-admins-volunteer-offer";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function updateProfile(formData: FormData) {
   const user = await requireUser();
@@ -130,13 +132,28 @@ export async function offerVolunteerForVisit(formData: FormData) {
     redirect("/dashboard/calendar?volunteer=forbidden");
   }
 
-  const { data: req } = await supabase.from("visit_requests").select("*").eq("id", visitRequestId).single();
+  const { data: req } = await supabase
+    .from("visit_requests")
+    .select("id, status, deleted_at, congregant_name")
+    .eq("id", visitRequestId)
+    .single();
 
-  const row = req as { id: string; status: string; deleted_at?: string | null } | null;
+  const row = req as {
+    id: string;
+    status: string;
+    deleted_at?: string | null;
+    congregant_name?: string;
+  } | null;
   const archived = Boolean(row?.deleted_at);
   if (!row || row.status !== "new" || archived) {
     redirect("/dashboard/calendar?volunteer=closed");
   }
+
+  const { data: volunteerProf } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
 
   const { error } = await supabase.from("visit_offers").insert({
     visit_request_id: visitRequestId,
@@ -146,6 +163,27 @@ export async function offerVolunteerForVisit(formData: FormData) {
   if (error) {
     redirect("/dashboard/calendar?volunteer=duplicate");
   }
+
+  const volunteerName = volunteerProf?.display_name?.trim() || "A care team member";
+  const congregantName = row.congregant_name?.trim() || "Visit request";
+
+  await writeAuditLog({
+    actorId: user.id,
+    action: "volunteer_offer_created",
+    entityType: "visit_request",
+    entityId: visitRequestId,
+    meta: { volunteer_name: volunteerName },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/volunteer-offers");
+
+  await notifyAdminsVolunteerOffer({
+    visitRequestId,
+    congregantName,
+    volunteerName,
+  });
+
   redirect("/dashboard/calendar?volunteer=ok");
 }
 

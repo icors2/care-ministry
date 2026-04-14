@@ -44,6 +44,9 @@ export default async function AdminHomePage({
         <Link className="text-cal-primary underline" href="/admin/members">
           Team accounts
         </Link>
+        <Link className="text-cal-primary underline" href="/admin/volunteer-offers">
+          Volunteer offers
+        </Link>
       </div>
       <ul className="mt-6 space-y-2">
         {filtered.map((r) => (
