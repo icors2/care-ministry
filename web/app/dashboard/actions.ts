@@ -99,22 +99,30 @@ export async function savePostVisitNotes(formData: FormData) {
   redirect("/dashboard/visits?notesSaved=1");
 }
 
+function assignmentResponseRedirectPath(formData: FormData): "/dashboard" | "/dashboard/visits" {
+  const raw = String(formData.get("return_to") ?? "visits");
+  return raw === "home" ? "/dashboard" : "/dashboard/visits";
+}
+
 export async function respondToAssignmentFromDashboard(formData: FormData) {
   const user = await requireUser();
+  const base = assignmentResponseRedirectPath(formData);
   const assignmentId = String(formData.get("assignment_id") ?? "");
   const decisionRaw = String(formData.get("decision") ?? "");
   if (!assignmentId || (decisionRaw !== "accept" && decisionRaw !== "decline")) {
-    redirect("/dashboard/visits?response=error");
+    redirect(`${base}?response=error`);
   }
   const res = await applyAssignmentResponse({
     assignmentId,
     assigneeId: user.id,
     decision: decisionRaw,
   });
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/visits");
   if (!res.ok) {
-    redirect(`/dashboard/visits?response=${res.error}`);
+    redirect(`${base}?response=${res.error}`);
   }
-  redirect(`/dashboard/visits?response=${decisionRaw === "accept" ? "accepted" : "declined"}`);
+  redirect(`${base}?response=${decisionRaw === "accept" ? "accepted" : "declined"}`);
 }
 
 export async function offerVolunteerForVisit(formData: FormData) {

@@ -115,6 +115,7 @@ export default async function VisitsPage({
               ) : null}
               <div className="flex flex-wrap gap-2">
                 <form action={respondToAssignmentFromDashboard}>
+                  <input type="hidden" name="return_to" value="visits" />
                   <input type="hidden" name="assignment_id" value={a.id} />
                   <input type="hidden" name="decision" value="accept" />
                   <button type="submit" className="btn-primary px-4 py-2 text-sm">
@@ -122,6 +123,7 @@ export default async function VisitsPage({
                   </button>
                 </form>
                 <form action={respondToAssignmentFromDashboard}>
+                  <input type="hidden" name="return_to" value="visits" />
                   <input type="hidden" name="assignment_id" value={a.id} />
                   <input type="hidden" name="decision" value="decline" />
                   <button type="submit" className="btn-secondary px-4 py-2 text-sm">
