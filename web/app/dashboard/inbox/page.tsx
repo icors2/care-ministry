@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import Link from "next/link";
-import { PendingAssignmentsCards } from "./_components/pending-assignments-cards";
+import { PendingAssignmentsCards } from "../_components/pending-assignments-cards";
 
-export const metadata = { title: "Dashboard | Care Ministry" };
+export const metadata = { title: "Inbox | Care Ministry" };
 
-export default async function DashboardHomePage({
+export default async function InboxPage({
   searchParams,
 }: {
   searchParams: Promise<{ response?: string }>;
@@ -26,36 +26,19 @@ export default async function DashboardHomePage({
     .eq("status", "pending")
     .order("created_at", { ascending: false });
 
-  const pendingRows = pending ?? [];
+  const rows = pending ?? [];
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-cal-ink">Welcome</h1>
-      <p className="mt-2 text-sm text-cal-ink-muted">
-        Set your{" "}
-        <Link href="/dashboard/profile" className="text-cal-primary underline">
-          carrier and phone
-        </Link>{" "}
-        so coordinators can reach you by text. Add{" "}
-        <Link href="/dashboard/availability" className="text-cal-primary underline">
-          weekly availability
-        </Link>{" "}
-        to help with scheduling.
+      <h1 className="text-2xl font-semibold text-cal-ink">Inbox</h1>
+      <p className="mt-2 max-w-2xl text-sm text-cal-ink-muted">
+        Things that need your attention—starting with visit assignments a coordinator sent you. You can also respond
+        from the link in your text or email.
       </p>
-
-      {pendingRows.length > 0 ? (
-        <p className="mt-3 text-sm text-cal-ink-muted">
-          You have{" "}
-          <Link href="/dashboard/inbox" className="font-medium text-cal-primary underline">
-            {pendingRows.length === 1 ? "1 item" : `${pendingRows.length} items`} in your inbox
-          </Link>{" "}
-          needing a response.
-        </p>
-      ) : null}
 
       {sp.response === "accepted" ? (
         <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
-          Visit accepted. Thank you for serving. Details stay in your{" "}
+          Visit accepted. Thank you for serving. Full details stay in your{" "}
           <Link href="/dashboard/visits" className="underline">
             visit log
           </Link>
@@ -79,20 +62,17 @@ export default async function DashboardHomePage({
       ) : null}
 
       <section className="mt-8">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-medium text-cal-ink">Pending assignments</h2>
-          {pendingRows.length > 0 ? (
-            <Link href="/dashboard/inbox" className="text-sm text-cal-primary underline">
-              Open inbox
-            </Link>
-          ) : null}
-        </div>
-        {pendingRows.length === 0 ? (
+        <h2 className="text-lg font-medium text-cal-ink">Pending visit assignments</h2>
+        {rows.length === 0 ? (
           <p className="mt-2 text-sm text-cal-ink-muted">
-            None right now. You will get a text or email when a coordinator assigns you.
+            You&apos;re all caught up. When a coordinator assigns you, it will show here and on{" "}
+            <Link href="/dashboard" className="text-cal-primary underline">
+              Overview
+            </Link>
+            .
           </p>
         ) : (
-          <PendingAssignmentsCards assignments={pendingRows} returnTo="home" />
+          <PendingAssignmentsCards assignments={rows} returnTo="inbox" />
         )}
       </section>
     </div>

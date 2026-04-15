@@ -99,9 +99,13 @@ export async function savePostVisitNotes(formData: FormData) {
   redirect("/dashboard/visits?notesSaved=1");
 }
 
-function assignmentResponseRedirectPath(formData: FormData): "/dashboard" | "/dashboard/visits" {
+function assignmentResponseRedirectPath(
+  formData: FormData,
+): "/dashboard" | "/dashboard/visits" | "/dashboard/inbox" {
   const raw = String(formData.get("return_to") ?? "visits");
-  return raw === "home" ? "/dashboard" : "/dashboard/visits";
+  if (raw === "home") return "/dashboard";
+  if (raw === "inbox") return "/dashboard/inbox";
+  return "/dashboard/visits";
 }
 
 export async function respondToAssignmentFromDashboard(formData: FormData) {
@@ -118,6 +122,7 @@ export async function respondToAssignmentFromDashboard(formData: FormData) {
     decision: decisionRaw,
   });
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/inbox");
   revalidatePath("/dashboard/visits");
   if (!res.ok) {
     redirect(`${base}?response=${res.error}`);
